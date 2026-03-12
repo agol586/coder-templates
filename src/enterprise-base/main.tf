@@ -81,8 +81,6 @@ resource "coder_agent" "main" {
 
   startup_script = file("${path.module}/startup.sh")
 
-  startup_script_timeout = 300
-
   metadata {
     display_name = "CPU Usage"
     key          = "cpu_usage"
