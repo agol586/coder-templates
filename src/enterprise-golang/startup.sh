@@ -22,6 +22,6 @@ if [ -n "${DOTFILES_URI}" ]; then
 fi
 
 echo "→ Starting code-server..."
-code-server-start &
+code-server-start
 
 echo "→ Startup complete."

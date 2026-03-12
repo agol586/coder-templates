@@ -10,6 +10,7 @@ code-server \
   --port "${CODE_SERVER_PORT}" \
   --disable-telemetry \
   --disable-update-check \
-  "$@" &
+  "$@" \
+  </dev/null >/tmp/code-server.log 2>&1 &
 
 echo "code-server started on port ${CODE_SERVER_PORT}"
