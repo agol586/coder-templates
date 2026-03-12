@@ -7,6 +7,8 @@ A collection of [Coder](https://coder.com) workspace templates for enterprise de
 | Template | Description |
 |----------|-------------|
 | [enterprise-golang](./enterprise-golang) | Production-ready Go (Golang) development workspace with VS Code Web, gopls, golangci-lint, Delve debugger, and enterprise module proxy support |
+| [enterprise-node](./enterprise-node) | Production-ready Node.js development workspace with VS Code Web, TypeScript language server, ESLint, Prettier, and enterprise npm registry support |
+| [enterprise-base](./enterprise-base) | General-purpose enterprise workspace with VS Code Web and a persistent home directory, suitable as a base for any language or toolchain |
 
 ## Getting Started
 
