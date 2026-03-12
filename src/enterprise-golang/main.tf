@@ -120,7 +120,7 @@ resource "coder_agent" "main" {
     go install honnef.co/go/tools/cmd/staticcheck@latest 2>/dev/null || true
 
     # Install dotfiles if provided
-    if [ -n "${DOTFILES_URI:-}" ]; then
+    if [ -n "${DOTFILES_URI}" ]; then
       echo "→ Cloning dotfiles from $DOTFILES_URI..."
       coder dotfiles -y "$DOTFILES_URI" 2>/dev/null || true
     fi
