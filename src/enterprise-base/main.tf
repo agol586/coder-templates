@@ -79,22 +79,7 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_EMAIL = data.coder_workspace_owner.me.email
   }
 
-  startup_script = <<-EOT
-    #!/bin/bash
-    set -euo pipefail
-
-    # Install dotfiles if provided
-    if [ -n "${DOTFILES_URI}" ]; then
-      echo "→ Cloning dotfiles from $DOTFILES_URI..."
-      coder dotfiles -y "$DOTFILES_URI" 2>/dev/null || true
-    fi
-
-    # Start code-server (VS Code Web)
-    echo "→ Starting code-server..."
-    code-server-start &
-
-    echo "→ Startup complete."
-  EOT
+  startup_script = file("${path.module}/startup.sh")
 
   startup_script_timeout = 300
 

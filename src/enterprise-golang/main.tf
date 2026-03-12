@@ -92,45 +92,7 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_EMAIL = data.coder_workspace_owner.me.email
   }
 
-  startup_script = <<-EOT
-    #!/bin/bash
-    set -euo pipefail
-
-    # Install / upgrade Go tooling
-    echo "→ Installing Go development tools..."
-    export GOPATH="$HOME/go"
-    export PATH="$PATH:$GOPATH/bin:/usr/local/go/bin"
-
-    # gopls – Go language server
-    go install golang.org/x/tools/gopls@latest 2>/dev/null || true
-
-    # golangci-lint – linter
-    if ! command -v golangci-lint &>/dev/null; then
-      curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-        | sh -s -- -b "$GOPATH/bin" 2>/dev/null || true
-    fi
-
-    # dlv – Delve debugger
-    go install github.com/go-delve/delve/cmd/dlv@latest 2>/dev/null || true
-
-    # goimports – import organizer
-    go install golang.org/x/tools/cmd/goimports@latest 2>/dev/null || true
-
-    # staticcheck – static analysis
-    go install honnef.co/go/tools/cmd/staticcheck@latest 2>/dev/null || true
-
-    # Install dotfiles if provided
-    if [ -n "${DOTFILES_URI}" ]; then
-      echo "→ Cloning dotfiles from $DOTFILES_URI..."
-      coder dotfiles -y "$DOTFILES_URI" 2>/dev/null || true
-    fi
-
-    # Start code-server (VS Code Web)
-    echo "→ Starting code-server..."
-    code-server-start &
-
-    echo "→ Startup complete."
-  EOT
+  startup_script = file("${path.module}/startup.sh")
 
   startup_script_timeout = 300
 
