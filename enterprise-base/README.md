@@ -115,7 +115,3 @@ Coder deployment
         │   └── <projects>/
         └── code-server        ← VS Code Web on :13337
 ```
-
-## License
-
-See [LICENSE](../LICENSE) in the repository root.
