@@ -17,29 +17,6 @@ provider "coder" {}
 # Parameters
 # --------------------------------------------------------------------------- #
 
-data "coder_parameter" "go_version" {
-  name         = "go_version"
-  display_name = "Go Version"
-  description  = "Choose the Go version for your workspace."
-  type         = "string"
-  default      = "1.22"
-  mutable      = false
-  icon         = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original-wordmark.svg"
-
-  option {
-    name  = "Go 1.22"
-    value = "1.22"
-  }
-  option {
-    name  = "Go 1.21"
-    value = "1.21"
-  }
-  option {
-    name  = "Go 1.20"
-    value = "1.20"
-  }
-}
-
 data "coder_parameter" "cpu" {
   name         = "cpu"
   display_name = "CPU Cores"
@@ -240,15 +217,12 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_image" "golang" {
-  name         = "codercom/enterprise-golang:${data.coder_parameter.go_version.value}"
+  name         = "coder-enterprise-golang:local"
   keep_locally = true
 
   build {
     context    = path.module
     dockerfile = "Dockerfile"
-    build_args = {
-      GO_VERSION = data.coder_parameter.go_version.value
-    }
   }
 }
 
@@ -292,8 +266,8 @@ resource "coder_metadata" "workspace_info" {
   daily_cost  = 10
 
   item {
-    key   = "Go Version"
-    value = data.coder_parameter.go_version.value
+    key   = "Base Image"
+    value = "codercom/enterprise-golang:latest"
   }
   item {
     key   = "CPU Cores"
@@ -306,10 +280,5 @@ resource "coder_metadata" "workspace_info" {
   item {
     key   = "GOPROXY"
     value = data.coder_parameter.goproxy.value
-  }
-  item {
-    key   = "Image"
-    value = docker_image.golang.name
-    sensitive = false
   }
 }

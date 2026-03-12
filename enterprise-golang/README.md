@@ -6,7 +6,7 @@ A production-ready [Coder](https://coder.com) template for Go (Golang) developme
 
 | Feature | Details |
 |---------|---------|
-| **Go versions** | 1.20, 1.21, 1.22 (selectable at workspace creation) |
+| **Base image** | [`codercom/enterprise-golang:latest`](https://hub.docker.com/r/codercom/enterprise-golang) |
 | **IDE** | VS Code Web (code-server) available in the browser |
 | **Language server** | `gopls` installed automatically |
 | **Linter** | `golangci-lint` installed automatically |
@@ -78,7 +78,6 @@ Install the [Coder extension](https://marketplace.visualstudio.com/items?itemNam
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `go_version` | Go toolchain version | `1.22` |
 | `cpu` | Number of CPU cores (1–8) | `2` |
 | `memory` | RAM in GB (2–16) | `4` |
 | `goproxy` | `GOPROXY` URL for module resolution | `https://proxy.golang.org,direct` |
@@ -111,13 +110,18 @@ The following tools are installed at workspace startup:
 
 ### Dockerfile
 
-The `Dockerfile` in this directory defines the base image. You can extend it to
+The `Dockerfile` in this directory layers on top of `codercom/enterprise-golang:latest`. You can extend it to
 add company-specific CA certificates, internal tooling, or additional packages:
 
 ```dockerfile
+FROM codercom/enterprise-golang:latest
+
 # Example: add a corporate CA certificate
+USER root
 COPY corp-ca.crt /usr/local/share/ca-certificates/corp-ca.crt
 RUN update-ca-certificates
+
+USER coder
 ```
 
 ### Startup Script
