@@ -169,20 +169,23 @@ resource "coder_agent" "main" {
   arch           = data.coder_provisioner.me.arch
   os             = "linux"
   startup_script = <<-EOT
-    set -e
-    # Prepare user home with default files on first start.
+    set -euo pipefail
     if [ ! -f ~/.init_done ]; then
       cp -rT /etc/skel ~
-      CODE_SERVER_BIN="$(command -v code-server || true)"
-      if [ -z "$CODE_SERVER_BIN" ] && [ -x /var/tmp/coder/code-server/bin/code-server ]; then
-        CODE_SERVER_BIN="/var/tmp/coder/code-server/bin/code-server"
-      fi
-      if [ -n "$CODE_SERVER_BIN" ]; then
-        for ext in GitHub.copilot GitHub.copilot-chat golang.go; do
-          SERVICE_URL=https://extensions.coder.com/api ITEM_URL=https://extensions.coder.com/item "$CODE_SERVER_BIN" --install-extension "$ext" --force || true
-        done
-      fi
       touch ~/.init_done
+    fi
+    CODE_SERVER_BIN="$(command -v code-server || true)"
+    if [ -z "$CODE_SERVER_BIN" ] && [ -x /var/tmp/coder/code-server/bin/code-server ]; then
+      CODE_SERVER_BIN="/var/tmp/coder/code-server/bin/code-server"
+    fi
+    if [ -n "$CODE_SERVER_BIN" ]; then
+      INSTALLED_EXTENSIONS="$("$CODE_SERVER_BIN" --list-extensions 2>/dev/null || true)"
+      for ext in GitHub.copilot GitHub.copilot-chat golang.go; do
+        if printf '%s\n' "$INSTALLED_EXTENSIONS" | grep -qx "$ext"; then
+          continue
+        fi
+        SERVICE_URL=https://extensions.coder.com/api ITEM_URL=https://extensions.coder.com/item "$CODE_SERVER_BIN" --install-extension "$ext" --force || true
+      done
     fi
   EOT
 
