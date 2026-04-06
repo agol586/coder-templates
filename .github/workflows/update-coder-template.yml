@@ -85,4 +85,4 @@ jobs:
           url: ${{ secrets.CODER_URL }}
           name: ${{ steps.latest_commit.outputs.hash }}
           message: ${{ steps.commit_title.outputs.title }}
-          coder_session_token: ${{ secrets.CODER_SESSION_TOKEN }}
+          coder_session_token: ${{ secrets.CODER_API_TOKEN || secrets.CODER_SESSION_TOKEN }}
