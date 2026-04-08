@@ -113,7 +113,7 @@ data "coder_workspace_preset" "default" {
     cd realworld-django-rest-framework-angular && ./start-dev.sh
     EOT
     "preview_port"    = "4200"
-    "container_image" = "codercom/example-universal:ubuntu"
+    "container_image" = "codercom/code-server:ubuntu"
   }
 
   # Pre-builds is a Coder Premium
@@ -149,7 +149,7 @@ data "coder_parameter" "container_image" {
   name         = "container_image"
   display_name = "Container Image"
   type         = "string"
-  default      = "codercom/example-universal:ubuntu"
+  default      = "codercom/code-server:ubuntu"
   mutable      = false
 }
 data "coder_parameter" "preview_port" {
@@ -173,19 +173,6 @@ resource "coder_agent" "main" {
     if [ ! -f ~/.init_done ]; then
       cp -rT /etc/skel ~
       touch ~/.init_done
-    fi
-    CODE_SERVER_BIN="$(command -v code-server || true)"
-    if [ -z "$CODE_SERVER_BIN" ] && [ -x /var/tmp/coder/code-server/bin/code-server ]; then
-      CODE_SERVER_BIN="/var/tmp/coder/code-server/bin/code-server"
-    fi
-    if [ -n "$CODE_SERVER_BIN" ]; then
-      INSTALLED_EXTENSIONS="$("$CODE_SERVER_BIN" --list-extensions 2>/dev/null || true)"
-      for ext in GitHub.copilot GitHub.copilot-chat golang.go; do
-        if printf '%s\n' "$INSTALLED_EXTENSIONS" | grep -qx "$ext"; then
-          continue
-        fi
-        SERVICE_URL=https://extensions.coder.com/api ITEM_URL=https://extensions.coder.com/item "$CODE_SERVER_BIN" --install-extension "$ext" --force || true
-      done
     fi
   EOT
 
@@ -272,6 +259,8 @@ module "vscode-web" {
   count  = data.coder_workspace.me.start_count
   folder = "/home/coder/projects"
   source = "registry.coder.com/coder/vscode-web/coder"
+
+  extensions = ["GitHub.copilot", "GitHub.copilot-chat", "golang.go"]
 
   settings = {
     "workbench.colorTheme" : "Default Dark Modern"
