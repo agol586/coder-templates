@@ -290,14 +290,6 @@ module "cursor" {
   agent_id = coder_agent.main.id
 }
 
-module "gemini" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder-labs/gemini/coder"
-  version  = "3.0.0"
-  agent_id = coder_agent.main.id
-  folder   = "/home/coder/projects"
-}
-
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
   # Protect the volume from being deleted due to changes in attributes.
