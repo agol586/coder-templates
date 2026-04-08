@@ -129,20 +129,13 @@ resource "coder_agent" "main" {
 # VS Code Web (code-server)
 # --------------------------------------------------------------------------- #
 
-resource "coder_app" "code_server" {
-  agent_id     = coder_agent.main.id
-  slug         = "code-server"
-  display_name = "VS Code Web"
-  url          = "http://localhost:13337/?folder=/home/coder"
-  icon         = "/icon/code.svg"
-  subdomain    = false
-  share        = "owner"
-
-  healthcheck {
-    url       = "http://localhost:13337/healthz"
-    interval  = 5
-    threshold = 6
-  }
+module "vscode-web" {
+  count          = data.coder_workspace.me.start_count
+  source         = "registry.coder.com/coder/vscode-web/coder"
+  version        = "1.5.0"
+  agent_id       = coder_agent.main.id
+  folder         = "/home/coder"
+  accept_license = true
 }
 
 # --------------------------------------------------------------------------- #

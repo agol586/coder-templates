@@ -267,28 +267,20 @@ resource "coder_agent" "main" {
   }
 }
 
-# See https://registry.coder.com/modules/coder/code-server
-module "code-server" {
+# See https://registry.coder.com/modules/coder/vscode-web
+module "vscode-web" {
   count  = data.coder_workspace.me.start_count
   folder = "/home/coder/projects"
-  source = "registry.coder.com/coder/code-server/coder"
+  source = "registry.coder.com/coder/vscode-web/coder"
 
   settings = {
     "workbench.colorTheme" : "Default Dark Modern"
   }
 
-  # This ensures that the latest non-breaking version of the module gets downloaded, you can also pin the module version to prevent breaking changes in production.
-  version = "~> 1.0"
+  version = "1.5.0"
 
   agent_id = coder_agent.main.id
-  order    = 1
-}
-
-module "windsurf" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/windsurf/coder"
-  version  = "1.3.0"
-  agent_id = coder_agent.main.id
+  accept_license = true
 }
 
 module "cursor" {
@@ -298,13 +290,12 @@ module "cursor" {
   agent_id = coder_agent.main.id
 }
 
-module "jetbrains" {
-  count      = data.coder_workspace.me.start_count
-  source     = "registry.coder.com/coder/jetbrains/coder"
-  version    = "~> 1.0"
-  agent_id   = coder_agent.main.id
-  agent_name = "main"
-  folder     = "/home/coder/projects"
+module "gemini" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder-labs/gemini/coder"
+  version  = "3.0.0"
+  agent_id = coder_agent.main.id
+  folder   = "/home/coder/projects"
 }
 
 resource "docker_volume" "home_volume" {
