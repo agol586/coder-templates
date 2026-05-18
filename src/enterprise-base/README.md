@@ -6,7 +6,7 @@ A production-ready [Coder](https://coder.com) general-purpose template for enter
 
 | Feature | Details |
 |---------|---------|
-| **Base image** | [`codercom/enterprise-base:latest`](https://hub.docker.com/r/codercom/enterprise-base) |
+| **Base image** | [`ghcr.io/coder/code-server:resolute`](https://github.com/coder/code-server/pkgs/container/code-server) |
 | **IDE** | VS Code Web (code-server) available in the browser |
 | **Dotfiles** | Optional personal dotfiles repo cloned at startup |
 | **Persistent home** | Docker volume mounted at `/home/coder` |
@@ -41,7 +41,7 @@ coder login https://<your-coder-url>
 ```bash
 git clone https://github.com/agol586/coder-templates.git
 cd coder-templates
-coder templates create enterprise-base --directory enterprise-base
+coder templates create enterprise-base --directory src/enterprise-base
 ```
 
 ### 4. Create a workspace
@@ -80,11 +80,11 @@ Install the [Coder extension](https://marketplace.visualstudio.com/items?itemNam
 
 ### Dockerfile
 
-The `Dockerfile` in this directory layers on top of `codercom/enterprise-base:latest`. You can extend it to
+The `Dockerfile` in this directory layers on top of `ghcr.io/coder/code-server:resolute`. You can extend it to
 add company-specific CA certificates, internal tooling, or additional packages:
 
 ```dockerfile
-FROM codercom/enterprise-base:latest
+FROM ghcr.io/coder/code-server:resolute
 
 # Example: add a corporate CA certificate
 USER root

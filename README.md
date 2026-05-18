@@ -6,9 +6,10 @@ A collection of [Coder](https://coder.com) workspace templates for enterprise de
 
 | Template | Description |
 |----------|-------------|
-| [enterprise-golang](./enterprise-golang) | Production-ready Go (Golang) development workspace with VS Code Web, gopls, golangci-lint, Delve debugger, and enterprise module proxy support |
-| [enterprise-node](./enterprise-node) | Production-ready Node.js development workspace with VS Code Web, TypeScript language server, ESLint, Prettier, and enterprise npm registry support |
-| [enterprise-base](./enterprise-base) | General-purpose enterprise workspace with VS Code Web and a persistent home directory, suitable as a base for any language or toolchain |
+| [enterprise-golang](./src/enterprise-golang) | Go (Golang) development workspace with VS Code Web, gopls, golangci-lint, Delve debugger, and configurable GOPROXY |
+| [enterprise-node](./src/enterprise-node) | Node.js development workspace with VS Code Web, TypeScript language server, ESLint, Prettier, and configurable npm registry |
+| [enterprise-base](./src/enterprise-base) | General-purpose enterprise workspace with VS Code Web and a persistent home directory |
+| [claude-code](./src/claude-code) | Claude Code AI agent workspace with code-server, Go toolchain, MCP servers, and preset demo app |
 
 ## Getting Started
 
@@ -28,7 +29,7 @@ A collection of [Coder](https://coder.com) workspace templates for enterprise de
 3. Create a template:
 
    ```bash
-   coder templates create enterprise-golang --directory enterprise-golang
+   coder templates create enterprise-golang --directory src/enterprise-golang
    ```
 
 4. Create a workspace:

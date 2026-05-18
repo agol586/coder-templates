@@ -8,7 +8,7 @@ export PATH="$PATH:$GOPATH/bin:/usr/local/go/bin"
 go install golang.org/x/tools/gopls@latest 2>/dev/null || true
 
 if ! command -v golangci-lint &>/dev/null; then
-  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+  curl -sSfL "https://golangci-lint.run/install.sh" \
     | sh -s -- -b "$GOPATH/bin" 2>/dev/null || true
 fi
 

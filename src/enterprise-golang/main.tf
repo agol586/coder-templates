@@ -83,6 +83,7 @@ resource "coder_agent" "main" {
   os   = "linux"
 
   env = {
+    PATH        = "/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     GOPROXY      = data.coder_parameter.goproxy.value
     GOPATH       = "/home/coder/go"
     GOMODCACHE   = "/home/coder/go/pkg/mod"
@@ -220,7 +221,7 @@ resource "coder_metadata" "workspace_info" {
 
   item {
     key   = "Base Image"
-    value = "codercom/enterprise-golang:latest"
+    value = "ghcr.io/coder/code-server:resolute"
   }
   item {
     key   = "CPU Cores"

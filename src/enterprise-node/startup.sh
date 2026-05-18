@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use default 2>/dev/null || true
+
 echo "→ Configuring npm registry..."
 npm config set registry "${NPM_CONFIG_REGISTRY}" 2>/dev/null || true
 

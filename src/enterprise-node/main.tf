@@ -218,7 +218,7 @@ resource "coder_metadata" "workspace_info" {
 
   item {
     key   = "Base Image"
-    value = "codercom/enterprise-node:latest"
+    value = "ghcr.io/coder/code-server:resolute"
   }
   item {
     key   = "CPU Cores"

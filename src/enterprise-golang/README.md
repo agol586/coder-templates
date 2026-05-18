@@ -6,7 +6,7 @@ A production-ready [Coder](https://coder.com) template for Go (Golang) developme
 
 | Feature | Details |
 |---------|---------|
-| **Base image** | [`codercom/enterprise-golang:latest`](https://hub.docker.com/r/codercom/enterprise-golang) |
+| **Base image** | [`ghcr.io/coder/code-server:resolute`](https://github.com/coder/code-server/pkgs/container/code-server) |
 | **IDE** | VS Code Web (code-server) available in the browser |
 | **Language server** | `gopls` installed automatically |
 | **Linter** | `golangci-lint` installed automatically |
@@ -47,7 +47,7 @@ coder login https://<your-coder-url>
 ```bash
 git clone https://github.com/agol586/coder-templates.git
 cd coder-templates
-coder templates create enterprise-golang --directory enterprise-golang
+coder templates create enterprise-golang --directory src/enterprise-golang
 ```
 
 ### 4. Create a workspace
@@ -110,11 +110,11 @@ The following tools are installed at workspace startup:
 
 ### Dockerfile
 
-The `Dockerfile` in this directory layers on top of `codercom/enterprise-golang:latest`. You can extend it to
+The `Dockerfile` in this directory layers on top of `ghcr.io/coder/code-server:resolute`. You can extend it to
 add company-specific CA certificates, internal tooling, or additional packages:
 
 ```dockerfile
-FROM codercom/enterprise-golang:latest
+FROM ghcr.io/coder/code-server:resolute
 
 # Example: add a corporate CA certificate
 USER root

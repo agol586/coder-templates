@@ -113,7 +113,7 @@ data "coder_workspace_preset" "default" {
     cd realworld-django-rest-framework-angular && ./start-dev.sh
     EOT
     "preview_port"    = "4200"
-    "container_image" = "ghcr.io/coder/code-server:noble"
+    "container_image" = "ghcr.io/coder/code-server:resolute"
   }
 
   # Pre-builds is a Coder Premium
@@ -149,7 +149,7 @@ data "coder_parameter" "container_image" {
   name         = "container_image"
   display_name = "Container Image"
   type         = "string"
-  default      = "ghcr.io/coder/code-server:noble"
+  default      = "ghcr.io/coder/code-server:resolute"
   mutable      = false
 }
 data "coder_parameter" "preview_port" {

@@ -6,7 +6,7 @@ A production-ready [Coder](https://coder.com) template for Node.js development i
 
 | Feature | Details |
 |---------|---------|
-| **Base image** | [`codercom/enterprise-node:latest`](https://hub.docker.com/r/codercom/enterprise-node) |
+| **Base image** | [`ghcr.io/coder/code-server:resolute`](https://github.com/coder/code-server/pkgs/container/code-server) |
 | **IDE** | VS Code Web (code-server) available in the browser |
 | **Language server** | `typescript-language-server` installed automatically |
 | **Linter** | `eslint` installed automatically |
@@ -46,7 +46,7 @@ coder login https://<your-coder-url>
 ```bash
 git clone https://github.com/agol586/coder-templates.git
 cd coder-templates
-coder templates create enterprise-node --directory enterprise-node
+coder templates create enterprise-node --directory src/enterprise-node
 ```
 
 ### 4. Create a workspace
@@ -108,11 +108,11 @@ The following tools are installed at workspace startup:
 
 ### Dockerfile
 
-The `Dockerfile` in this directory layers on top of `codercom/enterprise-node:latest`. You can extend it to
+The `Dockerfile` in this directory layers on top of `ghcr.io/coder/code-server:resolute`. You can extend it to
 add company-specific CA certificates, internal tooling, or additional packages:
 
 ```dockerfile
-FROM codercom/enterprise-node:latest
+FROM ghcr.io/coder/code-server:resolute
 
 # Example: add a corporate CA certificate
 USER root
