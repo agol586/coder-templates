@@ -10,6 +10,7 @@ A collection of [Coder](https://coder.com) workspace templates for enterprise de
 | [enterprise-node](./src/enterprise-node) | Node.js development workspace with VS Code Web, TypeScript language server, ESLint, Prettier, and configurable npm registry |
 | [enterprise-base](./src/enterprise-base) | General-purpose enterprise workspace with VS Code Web and a persistent home directory |
 | [claude-code](./src/claude-code) | Claude Code AI agent workspace with code-server, Go toolchain, MCP servers, and preset demo app |
+| [omx-codex](./src/omx-codex) | Ubuntu 26.04 Codex workspace with oh-my-codex, CodeGraph, Spec Kit, Node.js, Go, and global Codex skills |
 
 ## Getting Started
 
