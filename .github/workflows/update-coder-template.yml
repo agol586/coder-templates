@@ -77,12 +77,49 @@ jobs:
         id: commit_title
         run: echo "title=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
 
+      - name: Install Coder CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release="$(gh api repos/coder/coder/releases/latest)"
+          tag="$(jq -r '.tag_name' <<<"${release}")"
+          version="${tag#v}"
+          archive="coder_${version}_linux_amd64.tar.gz"
+          checksums="coder_${version}_checksums.txt"
+          download_url="https://github.com/coder/coder/releases/download/${tag}"
+
+          mkdir -p "${HOME}/.local/bin" /tmp/coder-cli
+          curl --fail --silent --show-error --location --retry 3 \
+            "${download_url}/${archive}" \
+            --output "/tmp/coder-cli/${archive}"
+          curl --fail --silent --show-error --location --retry 3 \
+            "${download_url}/${checksums}" \
+            --output "/tmp/coder-cli/${checksums}"
+
+          (
+            cd /tmp/coder-cli
+            grep " ${archive}$" "${checksums}" | sha256sum --check -
+            tar --extract --gzip --file "${archive}" coder
+          )
+
+          install /tmp/coder-cli/coder "${HOME}/.local/bin/coder"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
       - name: Update Coder Template
-        uses: matifali/update-coder-template@v3
-        with:
-          id: ${{ matrix.template-id }}
-          dir: src/${{ matrix.template-id }}
-          url: ${{ secrets.CODER_URL }}
-          name: ${{ steps.latest_commit.outputs.hash }}
-          message: ${{ steps.commit_title.outputs.title }}
-          coder_session_token: ${{ secrets.CODER_API_TOKEN || secrets.CODER_SESSION_TOKEN }}
+        env:
+          CODER_URL: ${{ secrets.CODER_URL }}
+          CODER_SESSION_TOKEN: ${{ secrets.CODER_API_TOKEN || secrets.CODER_SESSION_TOKEN }}
+          CODER_TEMPLATE_ID: ${{ matrix.template-id }}
+          CODER_TEMPLATE_DIR: src/${{ matrix.template-id }}
+          CODER_TEMPLATE_VERSION_NAME: ${{ steps.latest_commit.outputs.hash }}
+          CODER_TEMPLATE_MESSAGE: ${{ steps.commit_title.outputs.title }}
+        run: |
+          set -euo pipefail
+
+          coder templates push "${CODER_TEMPLATE_ID}" \
+            --directory "${CODER_TEMPLATE_DIR}" \
+            --name "${CODER_TEMPLATE_VERSION_NAME}" \
+            --message "${CODER_TEMPLATE_MESSAGE}" \
+            --yes
