@@ -41,7 +41,7 @@ Authenticate Codex after entering the workspace:
 codex login
 ```
 
-The shell and VS Code Web open in `~/repos`.
+The workspace defaults to 2 CPU cores and 4 GB of memory. The shell and VS Code Web open in `~/repos`.
 
 ## Per-project Setup
 
