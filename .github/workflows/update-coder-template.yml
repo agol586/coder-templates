@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      template_id:
+        description: Coder template directory name under src/
+        required: true
+        type: string
 
 jobs:
   prepare:
@@ -17,6 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Get changed directories (for Main branch push)
+        if: github.event_name == 'push'
         id: changed-tools
         uses: tj-actions/changed-files@v46
         with:
@@ -27,6 +34,7 @@ jobs:
           json: true
 
       - name: List all changed files
+        if: github.event_name == 'push'
         env:
           ALL_FILES: ${{ steps.changed-tools.outputs.all_changed_files }}
         run: |
@@ -45,6 +53,9 @@ jobs:
             echo "Changed files: ${{ steps.changed-tools.outputs.all_changed_files }}"
             ALL_TOOLS=$(echo "${{ steps.changed-tools.outputs.all_changed_files }}" | jq -r '.[]' | awk -F '/' '{print $2}' | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
             TOOLS_TO_BUILD="$ALL_TOOLS"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Detected manual run for template: ${{ inputs.template_id }}"
+            TOOLS_TO_BUILD=$(jq -cn --arg template_id "${{ inputs.template_id }}" '[$template_id]')
           else
             echo "Unsupported event or branch: ${{ github.event_name }} on ${{ github.ref }}. Exiting."
             exit 0
@@ -101,7 +112,7 @@ jobs:
           (
             cd /tmp/coder-cli
             grep " ${archive}$" "${checksums}" | sha256sum --check -
-            tar --extract --gzip --file "${archive}" coder
+            tar --extract --gzip --file "${archive}" ./coder
           )
 
           install /tmp/coder-cli/coder "${HOME}/.local/bin/coder"
