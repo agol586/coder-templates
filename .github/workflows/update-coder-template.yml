@@ -90,12 +90,19 @@ jobs:
 
       - name: Install Coder CLI
         env:
+          CODER_URL: ${{ secrets.CODER_URL }}
+          CODER_SESSION_TOKEN: ${{ secrets.CODER_API_TOKEN || secrets.CODER_SESSION_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          release="$(gh api repos/coder/coder/releases/latest)"
-          tag="$(jq -r '.tag_name' <<<"${release}")"
+          build_info="$(curl --fail --silent --show-error --location --retry 3 \
+            --header "Coder-Session-Token: ${CODER_SESSION_TOKEN}" \
+            "${CODER_URL%/}/api/v2/buildinfo")"
+          server_version="$(jq -er '.version' <<<"${build_info}")"
+          tag="${server_version%%+*}"
+          gh api "repos/coder/coder/releases/tags/${tag}" >/dev/null
+
           version="${tag#v}"
           archive="coder_${version}_linux_amd64.tar.gz"
           checksums="coder_${version}_checksums.txt"
