@@ -178,6 +178,8 @@ resource "docker_container" "workspace" {
   hostname    = data.coder_workspace.me.name
   working_dir = "/home/coder/repos"
 
+  security_opts = ["seccomp=unconfined"]
+
   cpu_shares = data.coder_parameter.cpu.value * 1024
   memory     = data.coder_parameter.memory.value * 1024
 

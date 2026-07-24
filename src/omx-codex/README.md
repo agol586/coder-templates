@@ -14,7 +14,7 @@ A batteries-included [Coder](https://coder.com) template for Codex and oh-my-cod
 | **Code intelligence** | [CodeGraph](https://github.com/colbymchenry/codegraph), connected globally to Codex |
 | **Skills** | All [mattpocock/skills](https://github.com/mattpocock/skills), installed globally for Codex |
 | **Spec-driven development** | [GitHub Spec Kit](https://github.com/github/spec-kit) `specify` CLI |
-| **CLI tools** | Git, Git LFS, ripgrep, fd, fzf, jq, tmux, shellcheck, SQLite, build-essential, and more |
+| **CLI tools** | Git, Git LFS, ripgrep, fd, fzf, jq, tmux, shellcheck, Bubblewrap, SQLite, build-essential, and more |
 | **Dotfiles** | Optional personal dotfiles repository |
 | **Resources** | Configurable CPU, memory, and npm registry |
 
@@ -89,6 +89,7 @@ Run `omx doctor` to inspect the oh-my-codex setup and `codegraph status` from an
 - OMX advanced modes can relax Codex approval or sandbox behavior. Use them only with trusted repositories.
 - CodeGraph indexing is local to each project and is not started automatically.
 - CodeGraph telemetry is disabled in the workspace image with `CODEGRAPH_TELEMETRY=0`.
+- The workspace uses Docker's `seccomp=unconfined` option so unprivileged user namespaces and Bubblewrap can run. This removes Docker's default syscall filter; only run trusted workspace images and code.
 
 ## Architecture
 

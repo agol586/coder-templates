@@ -19,6 +19,7 @@ USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash-completion \
+        bubblewrap \
         build-essential \
         ca-certificates \
         curl \
