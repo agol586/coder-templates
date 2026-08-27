@@ -92,7 +92,9 @@ data "coder_parameter" "relay_public_url" {
   mutable      = true
 
   validation {
-    regex = "^wss://[a-zA-Z0-9.-]+(:[0-9]+)?$"
+    # Coder supplies an empty sentinel while importing a template to detect
+    # persistent resources. Real workspace values remain constrained to wss.
+    regex = "^$|^wss://[a-zA-Z0-9.-]+(:[0-9]+)?$"
     error = "relay_public_url must look like wss://buzz.example.com (no path, no trailing slash)."
   }
 }

@@ -86,6 +86,7 @@ set +a
 # ---------------------------------------------------------------------------
 missing=()
 [ -z "${BUZZ_PRIVATE_KEY:-}" ] && missing+=("BUZZ_PRIVATE_KEY")
+[ -z "${BUZZ_RELAY_URL:-}" ] && missing+=("BUZZ_RELAY_URL")
 
 provider="${BUZZ_AGENT_PROVIDER:-}"
 case "${provider}" in
@@ -121,10 +122,6 @@ if [ "${#missing[@]}" -gt 0 ]; then
   log "not starting: missing required configuration: ${missing[*]}"
   log "edit ${ENV_FILE} (secrets) or the workspace's Terraform parameters (non-secret settings), then re-run buzz-agent-start"
   exit 1
-fi
-
-if [ -z "${BUZZ_RELAY_URL:-}" ]; then
-  log "warning: BUZZ_RELAY_URL is unset; buzz-acp will fall back to its own default (ws://localhost:3000)"
 fi
 
 # ---------------------------------------------------------------------------

@@ -74,7 +74,9 @@ data "coder_parameter" "agent_role" {
   mutable      = false
 
   validation {
-    regex = "^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$"
+    # Coder supplies an empty sentinel while importing a template to detect
+    # persistent resources. agent-data-init rejects it for real workspaces.
+    regex = "^$|^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$"
     error = "agent_role must be a lowercase slug of letters, digits, and internal hyphens only (e.g. marketing, finance, analysis, pm)."
   }
 }
@@ -109,7 +111,9 @@ data "coder_parameter" "relay_url" {
   mutable      = true
 
   validation {
-    regex = "^wss?://[a-zA-Z0-9.-]+(:[0-9]+)?$"
+    # Empty is reserved for Coder's template-import probe. buzz-agent-start
+    # requires a relay URL before starting the real agent process.
+    regex = "^$|^wss?://[a-zA-Z0-9.-]+(:[0-9]+)?$"
     error = "relay_url must look like wss://buzz.example.com or ws://host:port."
   }
 }
