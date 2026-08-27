@@ -1,0 +1,90 @@
+#!/bin/bash
+# agent-data-init — makes this workspace's per-role bind-mounted data root
+# writable and lays out its persistent subdirectories, then symlinks the
+# conventional ~/repos, ~/.config/buzz, and ~/.local/state/buzz-agent paths
+# into it.
+#
+# Runs on every container start (invoked by startup.sh) as the non-root
+# `coder` user. Also runnable standalone — inside any container built from
+# this image, with AGENT_DATA_ROOT bind-mounted — for testing (see
+# README.md "Validating this template").
+#
+# main.tf bind-mounts this one workspace's dedicated host directory
+# (/data/buzz-agents/<owner>/<agent_role>-<workspace-id>) at AGENT_DATA_ROOT.
+# Docker auto-creates a missing bind source as root, so on this workspace's
+# very first start (or after the host directory was pruned) AGENT_DATA_ROOT
+# may be owned by root:root. This script fixes ownership of *only* this
+# workspace's own mounted directory — it must never touch the shared
+# /data/buzz-agents parent (a host-admin-owned prerequisite this template
+# never writes to) — and fails loudly rather than silently running
+# unpersisted if it cannot be made writable.
+set -euo pipefail
+
+AGENT_DATA_ROOT="${AGENT_DATA_ROOT:-/home/coder/agent-data}"
+
+if [ ! -d "$AGENT_DATA_ROOT" ]; then
+  echo "ERROR: ${AGENT_DATA_ROOT} does not exist. This workspace's container must" >&2
+  echo "bind-mount its per-role host directory there — check the docker_container" >&2
+  echo "'workspace' volumes block in main.tf." >&2
+  exit 1
+fi
+
+if [ ! -w "$AGENT_DATA_ROOT" ]; then
+  echo "Fixing ownership of ${AGENT_DATA_ROOT} (bind-mounted host directory;" \
+    "Docker creates a missing bind source as root)..."
+  if command -v sudo >/dev/null 2>&1; then
+    if ! sudo -n chown -R "$(id -u):$(id -g)" "$AGENT_DATA_ROOT"; then
+      echo "ERROR: 'sudo chown' on ${AGENT_DATA_ROOT} failed (non-interactive" >&2
+      echo "sudo unavailable or denied). Refusing to continue unpersisted." >&2
+      exit 1
+    fi
+  else
+    echo "ERROR: ${AGENT_DATA_ROOT} is not writable by $(id -un) and sudo is" >&2
+    echo "unavailable to fix it. Refusing to continue unpersisted." >&2
+    exit 1
+  fi
+fi
+
+if [ ! -w "$AGENT_DATA_ROOT" ]; then
+  echo "ERROR: ${AGENT_DATA_ROOT} is still not writable by $(id -un) after" >&2
+  echo "chown. Check the host directory's permissions; refusing to continue." >&2
+  exit 1
+fi
+
+mkdir -p \
+  "$AGENT_DATA_ROOT/repos" \
+  "$AGENT_DATA_ROOT/config/buzz" \
+  "$AGENT_DATA_ROOT/state/buzz-agent" \
+  "$AGENT_DATA_ROOT/logs/buzz-agent"
+chmod 700 "$AGENT_DATA_ROOT/config/buzz"
+
+# Idempotent convenience symlinks from the conventional paths into the bind
+# mount. Safe to re-run: replaces only a stale/incorrect symlink or an empty
+# real directory (e.g. one the image or WORKDIR created); refuses to clobber
+# a non-empty real directory some other process left behind.
+link_into_agent_data() {
+  target="$1"
+  source="$2"
+  mkdir -p "$(dirname "$target")"
+  if [ -L "$target" ]; then
+    [ "$(readlink "$target")" = "$source" ] || ln -sfn "$source" "$target"
+  elif [ -e "$target" ]; then
+    if [ -d "$target" ] && [ -z "$(ls -A "$target" 2>/dev/null)" ]; then
+      rmdir "$target"
+      ln -s "$source" "$target"
+    else
+      echo "ERROR: ${target} exists and is not the expected symlink into" >&2
+      echo "${AGENT_DATA_ROOT}. Move any data you need out of it, remove it," >&2
+      echo "and restart the workspace." >&2
+      exit 1
+    fi
+  else
+    ln -s "$source" "$target"
+  fi
+}
+
+link_into_agent_data "$HOME/repos" "$AGENT_DATA_ROOT/repos"
+link_into_agent_data "$HOME/.config/buzz" "$AGENT_DATA_ROOT/config/buzz"
+link_into_agent_data "$HOME/.local/state/buzz-agent" "$AGENT_DATA_ROOT/state/buzz-agent"
+
+echo "Persistent storage ready: ${AGENT_DATA_HOST_PATH:-<unset>} (host) -> ${AGENT_DATA_ROOT} (container)"

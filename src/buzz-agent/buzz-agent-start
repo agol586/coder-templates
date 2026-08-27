@@ -1,0 +1,147 @@
+#!/bin/bash
+# buzz-agent-start — configuration checker and start wrapper for buzz-acp.
+#
+# Never prints secret values. Requires a 0600 env file at
+# $HOME/.config/buzz/agent.env containing BUZZ_PRIVATE_KEY and this agent's
+# LLM provider credentials before it will exec buzz-acp. Safe to re-run by
+# hand from a terminal after editing that file — it does not loop or retry
+# on its own; a misconfiguration needs a human to fix it.
+set -euo pipefail
+
+log() {
+  printf '[%s] buzz-agent-start(%s): %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "${AGENT_ROLE:-unknown}" "$*"
+}
+
+fail() {
+  log "ERROR: $*"
+  exit 1
+}
+
+ENV_DIR="${HOME}/.config/buzz"
+ENV_FILE="${ENV_DIR}/agent.env"
+mkdir -p "${ENV_DIR}"
+chmod 700 "${ENV_DIR}"
+
+# ---------------------------------------------------------------------------
+# First run: generate this agent's own Nostr identity (the one piece of
+# required secret material we *can* mint locally) and drop a commented
+# template for the provider credentials, which only the operator can supply.
+# ---------------------------------------------------------------------------
+if [ ! -f "${ENV_FILE}" ]; then
+  log "no agent config found at ${ENV_FILE}; generating a new agent identity"
+  umask 077
+  tmp_env="$(mktemp "${ENV_DIR}/.agent.env.XXXXXX")"
+  key_output="$(buzz-admin generate-key)"
+  secret_key="$(printf '%s\n' "${key_output}" | awk -F': *' '/^Secret key:/ {print $2}')"
+  public_key="$(printf '%s\n' "${key_output}" | awk -F': *' '/^Public key:/ {print $2}')"
+  if [ -z "${secret_key}" ]; then
+    rm -f "${tmp_env}"
+    fail "buzz-admin generate-key did not return a secret key"
+  fi
+  {
+    printf '# buzz-agent identity and provider credentials.\n'
+    printf '# This file is 0600 and lives only on this workspace'"'"'s persistent\n'
+    printf '# per-role host directory (see README.md Persistence and lifecycle); it is\n'
+    printf '# never read by Terraform and never printed to logs.\n'
+    printf '#\n'
+    printf '# Agent public key (share this with the relay owner for add-member): %s\n' "${public_key}"
+    printf 'BUZZ_PRIVATE_KEY=%s\n' "${secret_key}"
+    printf '\n'
+    printf '# Set the credentials for whichever BUZZ_AGENT_PROVIDER this workspace is\n'
+    printf '# configured with (see the buzz_agent_provider parameter), then re-run\n'
+    # shellcheck disable=SC2016 # single-quoted on purpose: literal backticks, not command substitution
+    printf '# `buzz-agent-start` or restart the workspace.\n'
+    printf '#\n'
+    printf '# anthropic:\n'
+    printf '#   ANTHROPIC_API_KEY=sk-ant-...\n'
+    printf '#\n'
+    printf '# openai (OpenAI-compatible endpoints):\n'
+    printf '#   OPENAI_COMPAT_API_KEY=sk-...\n'
+    printf '#\n'
+    printf '# openrouter:\n'
+    printf '#   OPENROUTER_API_KEY=sk-or-v1-...\n'
+    printf '#\n'
+    printf '# databricks / databricks_v2:\n'
+    printf '#   DATABRICKS_TOKEN=...   # optional; omit to use browser OAuth\n'
+    printf '#\n'
+    printf '# Optional, only if the relay enforces token auth:\n'
+    printf '#   BUZZ_API_TOKEN=...\n'
+  } >"${tmp_env}"
+  chmod 600 "${tmp_env}"
+  mv "${tmp_env}" "${ENV_FILE}"
+  unset key_output secret_key public_key
+  log "generated a new agent identity in ${ENV_FILE} — add your LLM provider credentials, then re-run buzz-agent-start"
+  exit 1
+fi
+
+chmod 600 "${ENV_FILE}"
+set -a
+# shellcheck source=/dev/null
+source "${ENV_FILE}"
+set +a
+
+# ---------------------------------------------------------------------------
+# Validate required configuration. Only variable *names* are ever mentioned
+# below — never their values.
+# ---------------------------------------------------------------------------
+missing=()
+[ -z "${BUZZ_PRIVATE_KEY:-}" ] && missing+=("BUZZ_PRIVATE_KEY")
+
+provider="${BUZZ_AGENT_PROVIDER:-}"
+case "${provider}" in
+  anthropic)
+    [ -z "${ANTHROPIC_API_KEY:-}" ] && missing+=("ANTHROPIC_API_KEY")
+    [ -z "${ANTHROPIC_MODEL:-}" ] && missing+=("ANTHROPIC_MODEL")
+    ;;
+  openai)
+    [ -z "${OPENAI_COMPAT_API_KEY:-}" ] && missing+=("OPENAI_COMPAT_API_KEY")
+    [ -z "${OPENAI_COMPAT_MODEL:-}" ] && missing+=("OPENAI_COMPAT_MODEL")
+    ;;
+  openrouter)
+    [ -z "${OPENROUTER_API_KEY:-}" ] && missing+=("OPENROUTER_API_KEY")
+    [ -z "${OPENROUTER_MODEL:-}" ] && missing+=("OPENROUTER_MODEL")
+    ;;
+  databricks | databricks_v2)
+    [ -z "${DATABRICKS_HOST:-}" ] && missing+=("DATABRICKS_HOST")
+    [ -z "${DATABRICKS_MODEL:-}" ] && missing+=("DATABRICKS_MODEL")
+    ;;
+  "")
+    missing+=("BUZZ_AGENT_PROVIDER")
+    ;;
+  *)
+    fail "BUZZ_AGENT_PROVIDER=${provider} is not one of: anthropic, openai, openrouter, databricks, databricks_v2"
+    ;;
+esac
+
+if [ "${BUZZ_ACP_RESPOND_TO:-owner-only}" = "allowlist" ] && [ -z "${BUZZ_ACP_RESPOND_TO_ALLOWLIST:-}" ]; then
+  missing+=("BUZZ_ACP_RESPOND_TO_ALLOWLIST")
+fi
+
+if [ "${#missing[@]}" -gt 0 ]; then
+  log "not starting: missing required configuration: ${missing[*]}"
+  log "edit ${ENV_FILE} (secrets) or the workspace's Terraform parameters (non-secret settings), then re-run buzz-agent-start"
+  exit 1
+fi
+
+if [ -z "${BUZZ_RELAY_URL:-}" ]; then
+  log "warning: BUZZ_RELAY_URL is unset; buzz-acp will fall back to its own default (ws://localhost:3000)"
+fi
+
+# ---------------------------------------------------------------------------
+# URL-scoped git credential configuration — identical to upstream's own
+# scripts/sprig-entrypoint.sh, so commits/pushes against the relay's git
+# endpoint authenticate the same way a stock sprig container would.
+# https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/scripts/sprig-entrypoint.sh
+# ---------------------------------------------------------------------------
+if [ -n "${BUZZ_RELAY_URL:-}" ]; then
+  relay_http_url="${BUZZ_RELAY_URL/#ws:/http:}"
+  relay_http_url="${relay_http_url/#wss:/https:}"
+  relay_http_url="${relay_http_url%/}"
+  git config --global "credential.${relay_http_url}/git.helper" /usr/local/bin/git-credential-nostr
+  git config --global "credential.${relay_http_url}/git.useHttpPath" true
+fi
+
+log "starting buzz-acp (provider: ${provider})"
+export BUZZ_ACP_AGENT_COMMAND="buzz-agent"
+export BUZZ_ACP_AGENT_ARGS=""
+exec buzz-acp

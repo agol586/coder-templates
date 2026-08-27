@@ -1,0 +1,174 @@
+#!/bin/bash
+# buzz-relay-start — waits for sibling dependencies, provisions the relay's
+# own signing identity, runs pending database migrations, bootstraps the
+# MinIO bucket, and then runs buzz-relay under a small crash-loop supervisor.
+#
+# Invoked by startup.sh (the Coder agent startup script) with its own log
+# file redirection already in place; every line this script prints therefore
+# lands in $HOME/.local/state/buzz-relay/relay.log.
+set -euo pipefail
+
+log() {
+  printf '[%s] buzz-relay-start: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
+}
+
+fail() {
+  log "ERROR: $*"
+  exit 1
+}
+
+require_env() {
+  local missing=()
+  local name
+  for name in "$@"; do
+    if [ -z "${!name:-}" ]; then
+      missing+=("${name}")
+    fi
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    fail "missing required environment variable(s): ${missing[*]}"
+  fi
+}
+
+require_env \
+  POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD \
+  REDIS_HOST REDIS_PORT REDIS_PASSWORD \
+  MINIO_HOST MINIO_PORT BUZZ_S3_ACCESS_KEY BUZZ_S3_SECRET_KEY BUZZ_S3_BUCKET \
+  DATABASE_URL REDIS_URL BUZZ_S3_ENDPOINT RELAY_URL BUZZ_GIT_REPO_PATH
+
+# ---------------------------------------------------------------------------
+# Relay signing identity + git hook HMAC secret: generated once into a 0600
+# file under the persistent home volume, never printed, never stored in
+# Terraform state. Rotating this file changes the relay's identity — back it
+# up (see README.md).
+# ---------------------------------------------------------------------------
+RELAY_ENV_DIR="${HOME}/.config/buzz-relay"
+RELAY_ENV_FILE="${RELAY_ENV_DIR}/relay.env"
+mkdir -p "${RELAY_ENV_DIR}"
+chmod 700 "${RELAY_ENV_DIR}"
+
+if [ ! -f "${RELAY_ENV_FILE}" ]; then
+  log "no relay identity found at ${RELAY_ENV_FILE}; generating one now"
+  umask 077
+  tmp_env="$(mktemp "${RELAY_ENV_DIR}/.relay.env.XXXXXX")"
+  key_output="$(buzz-admin generate-key)"
+  secret_key="$(printf '%s\n' "${key_output}" | awk -F': *' '/^Secret key:/ {print $2}')"
+  if [ -z "${secret_key}" ]; then
+    rm -f "${tmp_env}"
+    fail "buzz-admin generate-key did not return a secret key"
+  fi
+  hmac_secret="$(openssl rand -hex 32)"
+  {
+    printf 'BUZZ_RELAY_PRIVATE_KEY=%s\n' "${secret_key}"
+    printf 'BUZZ_GIT_HOOK_HMAC_SECRET=%s\n' "${hmac_secret}"
+  } >"${tmp_env}"
+  chmod 600 "${tmp_env}"
+  mv "${tmp_env}" "${RELAY_ENV_FILE}"
+  unset key_output secret_key hmac_secret
+  log "generated a new relay signing identity in ${RELAY_ENV_FILE} — back this file up"
+fi
+
+chmod 600 "${RELAY_ENV_FILE}"
+set -a
+# shellcheck source=/dev/null
+source "${RELAY_ENV_FILE}"
+set +a
+
+require_env BUZZ_RELAY_PRIVATE_KEY BUZZ_GIT_HOOK_HMAC_SECRET
+
+# ---------------------------------------------------------------------------
+# Wait for sibling dependencies. Each check names the dependency that is not
+# yet ready so failures are diagnosable from the log instead of a generic
+# timeout.
+# ---------------------------------------------------------------------------
+wait_for() {
+  local label="$1"
+  shift
+  local attempt=0
+  local max_attempts=60
+  until "$@" >/dev/null 2>&1; do
+    attempt=$((attempt + 1))
+    if [ "${attempt}" -ge "${max_attempts}" ]; then
+      fail "${label} did not become ready after $((max_attempts * 2))s"
+    fi
+    sleep 2
+  done
+  log "${label} is ready"
+}
+
+wait_for "postgres (${POSTGRES_HOST}:${POSTGRES_PORT})" \
+  pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+
+wait_for "redis (${REDIS_HOST}:${REDIS_PORT})" \
+  bash -c "redis-cli -h '${REDIS_HOST}' -p '${REDIS_PORT}' -a '${REDIS_PASSWORD}' --no-auth-warning ping | grep -q PONG"
+
+wait_for "minio (${MINIO_HOST}:${MINIO_PORT})" \
+  curl -fsS "http://${MINIO_HOST}:${MINIO_PORT}/minio/health/live"
+
+# ---------------------------------------------------------------------------
+# Idempotent MinIO bucket bootstrap — equivalent to upstream's one-shot
+# minio-init compose service (mc mb + mc anonymous set none), run here so it
+# stays correct across bucket-name parameter changes and template upgrades.
+# https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/deploy/compose/compose.yml
+# ---------------------------------------------------------------------------
+mc alias set relay "http://${MINIO_HOST}:${MINIO_PORT}" "${BUZZ_S3_ACCESS_KEY}" "${BUZZ_S3_SECRET_KEY}" >/dev/null
+mc mb --ignore-existing "relay/${BUZZ_S3_BUCKET}" >/dev/null
+mc anonymous set none "relay/${BUZZ_S3_BUCKET}" >/dev/null
+log "MinIO bucket '${BUZZ_S3_BUCKET}' is present"
+
+# ---------------------------------------------------------------------------
+# Database migrations. BUZZ_AUTO_MIGRATE is intentionally left false in this
+# template (see main.tf) so migrations only ever run from this explicit,
+# logged step instead of silently inside buzz-relay's own startup.
+# ---------------------------------------------------------------------------
+log "running database migrations"
+buzz-admin migrate
+log "database migrations complete"
+
+mkdir -p "${BUZZ_GIT_REPO_PATH}"
+
+# ---------------------------------------------------------------------------
+# Run buzz-relay under a small crash-loop supervisor. SIGTERM/SIGINT stop the
+# supervisor and forward the signal to the running relay for a graceful
+# shutdown instead of restarting it. A relay that keeps crashing is not
+# retried forever — bounded, backed-off restarts surface a hard failure
+# instead of masking a persistent problem.
+# ---------------------------------------------------------------------------
+child_pid=""
+shutting_down=0
+
+on_term() {
+  shutting_down=1
+  if [ -n "${child_pid}" ]; then
+    kill -TERM "${child_pid}" 2>/dev/null || true
+  fi
+}
+trap on_term TERM INT
+
+restart=0
+max_restarts=20
+while true; do
+  log "starting buzz-relay (attempt $((restart + 1)))"
+  buzz-relay &
+  child_pid=$!
+  wait "${child_pid}"
+  exit_code=$?
+  child_pid=""
+
+  if [ "${shutting_down}" -eq 1 ]; then
+    log "buzz-relay stopped (exit ${exit_code}) during shutdown"
+    exit 0
+  fi
+
+  restart=$((restart + 1))
+  if [ "${restart}" -ge "${max_restarts}" ]; then
+    fail "buzz-relay exited with code ${exit_code} ${restart} times; giving up after ${max_restarts} attempts"
+  fi
+
+  backoff=$((restart * 5))
+  if [ "${backoff}" -gt 60 ]; then
+    backoff=60
+  fi
+  log "buzz-relay exited with code ${exit_code}; restarting in ${backoff}s"
+  sleep "${backoff}"
+done

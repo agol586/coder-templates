@@ -11,6 +11,8 @@ A collection of [Coder](https://coder.com) workspace templates for enterprise de
 | [enterprise-base](./src/enterprise-base) | General-purpose enterprise workspace with VS Code Web and a persistent home directory |
 | [claude-code](./src/claude-code) | Claude Code AI agent workspace with code-server, Go toolchain, MCP servers, and preset demo app |
 | [omx-codex](./src/omx-codex) | Ubuntu 26.04 Codex workspace with oh-my-codex, CodeGraph, Spec Kit, Node.js, Go, and global Codex skills |
+| [buzz-relay](./src/buzz-relay) | [Buzz](https://github.com/block/buzz) Nostr relay workspace with Terraform-managed PostgreSQL, Redis, and MinIO siblings, persistent volumes, and a documented external-reverse-proxy contract |
+| [buzz-agent](./src/buzz-agent) | Persistent, per-role [Buzz](https://github.com/block/buzz) ACP agent workspace (Sprig multicall binary) — one immutable `agent_role` identity per workspace, with a dedicated host bind-mounted data directory under `/data/buzz-agents`, no sibling services, and no published ports — connects outbound to a Buzz relay |
 
 ## Getting Started
 

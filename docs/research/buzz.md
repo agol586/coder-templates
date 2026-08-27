@@ -457,9 +457,120 @@ unauthorized senders under the default policy.
 - TLS terminates at the external reverse proxy.
 - Client authentication uses Buzz-native NIP-42 and NIP-98 only.
 - No browser-session or proxy authentication is placed in front of the relay.
-- PostgreSQL, MinIO, relay cache, configuration, and workspace files persist
-  across workspace stop/start and template upgrades through named Docker
-  volumes.
+- `buzz-relay`: PostgreSQL, MinIO, relay cache, configuration, and workspace
+  files persist across workspace stop/start and template upgrades through
+  named Docker volumes.
+- `buzz-agent`: identity/provider config, repositories/working trees, logs,
+  and agent state persist across workspace stop/start and template upgrades
+  through a **host bind mount** (not a named Docker volume) rooted at
+  `/data/buzz-agents`, one dedicated directory per workspace — see the
+  "buzz-agent: per-role host bind persistence" addendum below. This is a
+  deliberate divergence from `buzz-relay`'s named-volume approach, driven by
+  the requirement to run multiple independent role identities
+  (`marketing`, `finance`, `analysis`, `pm`, ...) each as its own workspace
+  with an operator-inspectable, backup-able host path.
 - Redis remains ephemeral.
-- Workspace deletion is allowed to remove workspace-managed volumes and will be
-  documented as destructive.
+- Workspace deletion is allowed to remove workspace-managed **named Docker
+  volumes** (`buzz-relay`) and will be documented as destructive. It does
+  **not** remove `buzz-agent`'s bind-mounted host directory — that cleanup is
+  an explicit, separate host-admin operation (see the addendum below).
+
+## Implementation addendum
+
+Refinements discovered while implementing `src/buzz-relay` and
+`src/buzz-agent` against the pinned commit. These are corrections/additions
+to the plan above, not changes to the confirmed decisions.
+
+- **pnpm version**: `package.json` at the pinned commit pins
+  `packageManager: pnpm@11.4.0`, not pnpm 10 as estimated above. The relay
+  template's optional Node toolchain (for manual rebuilds) installs pnpm via
+  `corepack enable`, which reads this field directly, so no hardcoded pnpm
+  version was needed in the Dockerfile.
+- **Prebuilt images over from-source builds, for both templates**: both
+  `buzz-relay` and `buzz-agent` copy binaries from the pinned, verified-public
+  `ghcr.io/block/buzz:sha-b622003` and `ghcr.io/block/buzz-sprig:sha-b622003`
+  images (multi-arch; `org.opencontainers.image.revision` confirmed to match
+  the pinned commit) via multi-stage `COPY --from=`, rather than compiling the
+  Rust workspace at image-build time. This was verified directly (pulling and
+  running both images, confirming the Sprig multicall binary is a static musl
+  executable that runs unmodified on the glibc `code-server` base) before
+  choosing it over a from-source build. `buzz-relay`'s image still installs an
+  optional Rust/Node/`just` toolchain and checks out Buzz source into
+  `~/repos/buzz` at startup, so a manual from-source rebuild remains possible;
+  `buzz-agent`'s image omits that toolchain entirely to stay minimal, since it
+  has no from-source rebuild requirement.
+- **MinIO bucket bootstrap folded into the relay startup wrapper**: rather
+  than a separate Terraform-managed one-shot `minio-init` container (as
+  upstream's own Compose bundle uses), `buzz-relay-start` runs the equivalent
+  `mc mb --ignore-existing` / `mc anonymous set none` idempotently on every
+  start. Terraform's `kreuzwerker/docker` provider has no first-class
+  "wait for a one-shot container to exit 0" primitive, so folding this into
+  the already-idempotent startup wrapper (which already waits for MinIO to be
+  healthy) was more reliable than adding a fourth sibling container.
+- **Database migrations**: `BUZZ_AUTO_MIGRATE` is left `false`; `buzz-relay-start`
+  runs `buzz-admin migrate` explicitly and logs it, so schema changes are
+  always visible in the startup log instead of happening silently inside the
+  relay process.
+- **Infrastructure secret generation**: PostgreSQL/Redis/MinIO credentials are
+  generated via Terraform's `random_password` (alphanumeric only, to avoid
+  URL-percent-encoding in `DATABASE_URL`/`REDIS_URL`), marked sensitive, and
+  injected only as container environment variables. Buzz's own signing
+  identity (`BUZZ_RELAY_PRIVATE_KEY`, `BUZZ_GIT_HOOK_HMAC_SECRET` for the
+  relay; `BUZZ_PRIVATE_KEY` and LLM provider credentials for the agent) is
+  generated at container startup via `buzz-admin generate-key` /
+  `openssl rand -hex 32` and persisted only in a `0600` file under the home
+  volume — never in Terraform state, never logged.
+
+- **`buzz-agent`: per-role host bind persistence (follow-up requirement)**:
+  the original `buzz-agent` implementation persisted `/home/coder` (identity,
+  `~/repos/buzz`, `~/.config/buzz`) through a Docker named volume, deleted
+  along with the workspace — matching `buzz-relay`'s pattern. A follow-up
+  requirement introduced running **multiple role agents** (`marketing`,
+  `finance`, `analysis`, `pm`, ...), one independent Coder workspace per
+  role, with persistence rooted in **host bind storage** at
+  `/data/buzz-agents` rather than opaque per-workspace named volumes. This
+  changes only `buzz-agent`; `buzz-relay` is unaffected and keeps its named
+  volumes.
+  - A new immutable, required `agent_role` parameter (validated as a
+    lowercase slug: `^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`) identifies the
+    workspace's one Buzz identity. `BUZZ_ACP_AGENTS` is unchanged in meaning
+    — it remains worker concurrency for that single identity, not a way to
+    run multiple roles from one workspace — and its parameter description
+    was reworded to say so explicitly.
+  - The host path is derived, never taken as free-form input:
+    `/data/buzz-agents/<owner>/<agent_role>-<workspace-id>`, using
+    `data.coder_workspace_owner.me.name` and `data.coder_workspace.me.id`
+    (both stable, Coder-assigned) plus the validated role slug.
+    `/data/buzz-agents` itself is a Terraform-local constant. The workspace
+    UUID suffix keeps two workspaces that pick the same role isolated.
+  - `docker_container.workspace`'s `volumes` block uses `host_path` (a bind
+    mount) instead of `volume_name`, targeting `/home/coder/agent-data` — a
+    dedicated data root, not `/home/coder` itself, so the bind mount never
+    hides image-provided home-directory files. The prior
+    `docker_volume.home_volume` resource was removed.
+  - A new standalone script, `agent-data-init`, runs on every container
+    start (from `startup.sh`, and independently for testing): it fixes
+    ownership of *only* `AGENT_DATA_ROOT` (never the shared
+    `/data/buzz-agents` parent) via the base `code-server` image's
+    passwordless `sudo` when Docker has auto-created the bind source as
+    root, fails loudly if it cannot be made writable, lays out
+    `repos/`, `config/buzz/` (mode `0700`), `state/buzz-agent/`, and
+    `logs/buzz-agent/` under it, and idempotently symlinks
+    `~/repos`, `~/.config/buzz`, and `~/.local/state/buzz-agent` into those
+    subdirectories.
+  - Verified directly: built the image, then ran it twice with `docker run
+    --entrypoint bash -v <nonexistent-host-dir>:/home/coder/agent-data`
+    against the same host directory — the first run showed Docker
+    auto-creating the bind source as root and `agent-data-init` fixing
+    ownership and writing config/repo/log canary files; the second run
+    (simulating container recreation) confirmed those canaries persisted and
+    the directories remained non-root-writable without any further chown.
+    Also verified the loud-failure path: a pre-existing non-empty real
+    directory at a symlink target correctly aborts with a clear error
+    instead of silently overwriting data.
+  - Documented as a host-admin prerequisite, not something this template
+    provisions: `/data/buzz-agents` must be durable, adequately sized
+    storage reachable by the Docker provisioner; deleting a workspace does
+    not delete its bind-mounted directory, so cleanup and backups are
+    explicit, separate host-admin operations (see `buzz-agent/README.md`
+    "Persistence and lifecycle" and "Host prerequisites").
