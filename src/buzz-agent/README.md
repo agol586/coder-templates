@@ -41,7 +41,11 @@ for reading and reference.
 `buzz-acp` listens for @mentions/DMs on the relay (subject to the "Respond
 To" gate below), spawns `buzz-agent` over stdio using the Agent Client
 Protocol, and `buzz-agent` calls your chosen LLM provider and executes tool
-calls via MCP. No inbound port is ever opened by this workspace.
+calls through the `buzz-dev-mcp` sidecar. `buzz-agent-start` sets
+`BUZZ_ACP_MCP_COMMAND=buzz-dev-mcp` and verifies the binary exists before
+starting; without that sidecar the agent can receive an @mention and call the
+LLM but cannot send its reply back to Buzz. No inbound port is ever opened by
+this workspace.
 
 ## Why prebuilt binaries
 

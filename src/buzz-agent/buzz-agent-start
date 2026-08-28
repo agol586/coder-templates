@@ -124,6 +124,10 @@ if [ "${#missing[@]}" -gt 0 ]; then
   exit 1
 fi
 
+mcp_command="${BUZZ_ACP_MCP_COMMAND:-buzz-dev-mcp}"
+command -v "${mcp_command}" >/dev/null 2>&1 ||
+  fail "BUZZ_ACP_MCP_COMMAND executable not found: ${mcp_command}"
+
 # ---------------------------------------------------------------------------
 # URL-scoped git credential configuration — identical to upstream's own
 # scripts/sprig-entrypoint.sh, so commits/pushes against the relay's git
@@ -138,7 +142,8 @@ if [ -n "${BUZZ_RELAY_URL:-}" ]; then
   git config --global "credential.${relay_http_url}/git.useHttpPath" true
 fi
 
-log "starting buzz-acp (profile: ${BUZZ_ACP_DISPLAY_NAME:-${AGENT_ROLE:-unknown}}, provider: ${provider})"
+log "starting buzz-acp (profile: ${BUZZ_ACP_DISPLAY_NAME:-${AGENT_ROLE:-unknown}}, provider: ${provider}, MCP: ${mcp_command})"
 export BUZZ_ACP_AGENT_COMMAND="buzz-agent"
 export BUZZ_ACP_AGENT_ARGS=""
+export BUZZ_ACP_MCP_COMMAND="${mcp_command}"
 exec buzz-acp
