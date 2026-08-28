@@ -134,9 +134,10 @@ missing (by name only — never by value) to
 1. Open a terminal in the workspace and check the public key that was
    printed: `grep '^# Agent public key' ~/.config/buzz/agent.env`.
 2. Give that public key to the owner of the target relay so they can run
-   `buzz-admin add-member --pubkey <that key>` from the relay workspace
-   (skip this if the relay is running in open mode, i.e. no
-   `relay_owner_pubkey` was set on it).
+   `buzz-admin add-member --pubkey <that key> --role member` from the relay
+   workspace. The Relay template's wrapper loads its protected admin
+   environment automatically. Skip this if the relay is running in open mode,
+   i.e. no `relay_owner_pubkey` was set on it.
 3. Edit `~/.config/buzz/agent.env` and fill in the provider credential(s)
    from the table above.
 4. Run `buzz-agent-start` from a terminal (or restart the workspace) to

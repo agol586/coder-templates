@@ -44,6 +44,7 @@ require_env \
 # ---------------------------------------------------------------------------
 RELAY_ENV_DIR="${HOME}/.config/buzz-relay"
 RELAY_ENV_FILE="${RELAY_ENV_DIR}/relay.env"
+ADMIN_ENV_FILE="${RELAY_ENV_DIR}/admin.env"
 mkdir -p "${RELAY_ENV_DIR}"
 chmod 700 "${RELAY_ENV_DIR}"
 
@@ -75,6 +76,21 @@ source "${RELAY_ENV_FILE}"
 set +a
 
 require_env BUZZ_RELAY_PRIVATE_KEY BUZZ_GIT_HOOK_HMAC_SECRET
+
+# Refresh the environment consumed by the buzz-admin wrapper on every start.
+# The source checkout's development .env points at localhost, which is not the
+# PostgreSQL/Redis address inside this template's private Docker network.
+umask 077
+tmp_admin_env="$(mktemp "${RELAY_ENV_DIR}/.admin.env.XXXXXX")"
+{
+  printf 'DATABASE_URL=%q\n' "${DATABASE_URL}"
+  printf 'REDIS_URL=%q\n' "${REDIS_URL}"
+  printf 'RELAY_URL=%q\n' "${RELAY_URL}"
+  printf 'BUZZ_RELAY_PRIVATE_KEY=%q\n' "${BUZZ_RELAY_PRIVATE_KEY}"
+} >"${tmp_admin_env}"
+chmod 600 "${tmp_admin_env}"
+mv "${tmp_admin_env}" "${ADMIN_ENV_FILE}"
+unset tmp_admin_env
 
 # ---------------------------------------------------------------------------
 # Wait for sibling dependencies. Each check names the dependency that is not

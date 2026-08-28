@@ -69,8 +69,12 @@ RUN apt-get update \
 # buzz-relay / buzz-admin — copied from the pinned public relay image.
 # ---------------------------------------------------------------------------
 COPY --from=buzz-bin /usr/local/bin/buzz-relay /usr/local/bin/buzz-relay
-COPY --from=buzz-bin /usr/local/bin/buzz-admin /usr/local/bin/buzz-admin
-RUN chmod 0755 /usr/local/bin/buzz-relay /usr/local/bin/buzz-admin
+COPY --from=buzz-bin /usr/local/bin/buzz-admin /usr/local/libexec/buzz-admin
+COPY --chown=root:root buzz-admin-wrapper /usr/local/bin/buzz-admin
+RUN chmod 0755 \
+    /usr/local/bin/buzz-relay \
+    /usr/local/bin/buzz-admin \
+    /usr/local/libexec/buzz-admin
 
 # ---------------------------------------------------------------------------
 # MinIO client (mc) — pinned to the same release upstream's compose bundle

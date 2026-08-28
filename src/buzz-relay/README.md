@@ -102,6 +102,13 @@ origin from the same host.
   home volume. Subsequent starts reuse this file unchanged. **Back this file
   up** — losing it changes the relay's identity from clients' perspective.
   Nothing in this template ever prints its contents to logs.
+- **The Relay admin environment** is refreshed at
+  `~/.config/buzz-relay/admin.env` with `0600` permissions on every start. It
+  contains the runtime PostgreSQL/Redis URLs and relay signing key required by
+  `buzz-admin`. The installed `buzz-admin` wrapper loads this file
+  automatically, preventing the source checkout's localhost-oriented `.env`
+  from overriding the private Docker network addresses. Protect this file like
+  the relay identity file.
 
 ## Persistence and lifecycle
 
@@ -130,9 +137,16 @@ database rather than regenerating anything.
 1. Start the workspace and open the **Relay Readiness** and **Relay Metrics**
    owner-only apps to confirm the relay is healthy.
 2. If you set `relay_owner_pubkey`, the relay runs in closed membership mode;
-   add additional members with `buzz-admin add-member --pubkey <hex-or-npub> --role member`
-   from inside the workspace (requires `BUZZ_RELAY_PRIVATE_KEY`, already
-   loaded by `buzz-relay-start`).
+   add additional members from a relay workspace terminal:
+
+   ```bash
+   buzz-admin add-member --pubkey <hex-or-npub> --role member
+   buzz-admin list-members
+   ```
+
+   The installed wrapper loads the protected Relay admin environment
+   automatically; do not source the Buzz source checkout's development
+   `.env`, which points at localhost.
 3. Point `buzz-agent` workspaces (see the sibling `buzz-agent` template) or
    any Nostr/Buzz client at `relay_public_url`.
 

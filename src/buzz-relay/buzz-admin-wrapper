@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+admin_env="${HOME}/.config/buzz-relay/admin.env"
+if [ -f "${admin_env}" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${admin_env}"
+  set +a
+fi
+
+exec "${BUZZ_ADMIN_BIN:-/usr/local/libexec/buzz-admin}" "$@"
