@@ -574,3 +574,36 @@ to the plan above, not changes to the confirmed decisions.
     not delete its bind-mounted directory, so cleanup and backups are
     explicit, separate host-admin operations (see `buzz-agent/README.md`
     "Persistence and lifecycle" and "Host prerequisites").
+
+## Buzz Desktop onboarding and hosted communities
+
+Reviewed at the pinned Buzz commit
+[`b622003f74aa5bf9b659786452813299a25e4897`](https://github.com/block/buzz/tree/b622003f74aa5bf9b659786452813299a25e4897),
+whose Desktop package version is `0.5.20`.
+
+- **Hosted communities** is Block's optional Relay hosting product. Its
+  settings page explicitly states that Buzz works with any Relay and that
+  Builderlab sign-in is used only to create and manage communities hosted by
+  Block
+  ([source](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/settings/ui/HostedCommunitiesSettingsCard.tsx)).
+  A Builderlab account is not required for a self-hosted Relay.
+- To connect the public Desktop build to a self-hosted Relay during onboarding,
+  choose **I already have a community** → **I'm a member or admin**, then enter
+  the Relay in **Community URL or invite link**. After onboarding, use the
+  community switcher → **Add a community** → **Join an existing community**
+  ([welcome flow](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/communities/ui/WelcomeSetup.tsx),
+  [join form](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/onboarding/ui/InviteRedeemForm.tsx),
+  [add-community flow](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/communities/ui/AddCommunityDialog.tsx)).
+- The join form accepts `wss://buzz.agol66.uk`, `https://buzz.agol66.uk`, or
+  the bare hostname and normalizes them to the WebSocket Relay URL
+  ([source](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/communities/relayProbe.ts)).
+- Desktop still creates a local Nostr identity and profile. That keypair is the
+  user's Buzz identity, not a Builderlab account. On a closed Relay, its public
+  key must be admitted by the Relay owner. When membership is denied, Desktop
+  displays the local `npub` for copying
+  ([source](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/onboarding/ui/MembershipDenied.tsx));
+  it is also available under Profile settings
+  ([source](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src/features/settings/ui/ProfileSettingsCard.tsx)).
+- `BUZZ_RELAY_URL` can provide a startup default, but a community URL selected
+  in the UI has higher precedence
+  ([source](https://github.com/block/buzz/blob/b622003f74aa5bf9b659786452813299a25e4897/desktop/src-tauri/src/relay.rs)).

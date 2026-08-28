@@ -81,6 +81,35 @@ data "coder_parameter" "agent_role" {
   }
 }
 
+data "coder_parameter" "agent_profile_name" {
+  name         = "agent_profile_name"
+  display_name = "Agent Profile Name"
+  description  = "Display name exposed to the Buzz ACP tool surface (BUZZ_ACP_DISPLAY_NAME). Leave blank to use Agent Role."
+  type         = "string"
+  default      = ""
+  mutable      = true
+}
+
+data "coder_parameter" "agent_system_prompt" {
+  name         = "agent_system_prompt"
+  display_name = "Agent System Prompt"
+  description  = "Instructions injected into every Buzz ACP session (BUZZ_ACP_SYSTEM_PROMPT). Stored as a normal, non-secret Coder parameter."
+  type         = "string"
+  form_type    = "textarea"
+  default      = ""
+  mutable      = true
+}
+
+data "coder_parameter" "agent_initial_message" {
+  name         = "agent_initial_message"
+  display_name = "Agent Initial Message"
+  description  = "Optional message sent immediately after each Buzz ACP session is created (BUZZ_ACP_INITIAL_MESSAGE)."
+  type         = "string"
+  form_type    = "textarea"
+  default      = ""
+  mutable      = true
+}
+
 data "coder_parameter" "buzz_ref" {
   name         = "buzz_ref"
   display_name = "Buzz Commit"
@@ -274,6 +303,11 @@ locals {
   buzz_image       = "ghcr.io/block/buzz:sha-${local.buzz_ref_short}"
   buzz_sprig_image = "ghcr.io/block/buzz-sprig:sha-${local.buzz_ref_short}"
   resource_prefix  = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
+  agent_profile_name = (
+    trimspace(data.coder_parameter.agent_profile_name.value) != ""
+    ? data.coder_parameter.agent_profile_name.value
+    : data.coder_parameter.agent_role.value
+  )
 
   # --------------------------------------------------------------------------- #
   # Per-role host bind persistence.
@@ -483,6 +517,7 @@ resource "docker_container" "workspace" {
       "AGENT_DATA_HOST_PATH=${local.agent_data_host_path}",
       "BUZZ_RELAY_URL=${data.coder_parameter.relay_url.value}",
       "BUZZ_AGENT_PROVIDER=${data.coder_parameter.provider.value}",
+      "BUZZ_ACP_DISPLAY_NAME=${local.agent_profile_name}",
       "BUZZ_ACP_RESPOND_TO=${data.coder_parameter.respond_to.value}",
       "BUZZ_ACP_RESPOND_TO_ALLOWLIST=${data.coder_parameter.respond_to_allowlist.value}",
       "BUZZ_ACP_AGENTS=${data.coder_parameter.agents_count.value}",
@@ -490,6 +525,12 @@ resource "docker_container" "workspace" {
       "BUZZ_ACP_MAX_TURN_DURATION=${data.coder_parameter.max_turn_duration.value}",
       "BUZZ_AGENT_MAX_ROUNDS=${data.coder_parameter.max_rounds.value}",
     ],
+    trimspace(data.coder_parameter.agent_system_prompt.value) != "" ? [
+      "BUZZ_ACP_SYSTEM_PROMPT=${data.coder_parameter.agent_system_prompt.value}"
+    ] : [],
+    trimspace(data.coder_parameter.agent_initial_message.value) != "" ? [
+      "BUZZ_ACP_INITIAL_MESSAGE=${data.coder_parameter.agent_initial_message.value}"
+    ] : [],
     [for k, v in local.provider_env : "${k}=${v}" if v != ""]
   )
 
@@ -528,6 +569,10 @@ resource "coder_metadata" "workspace_info" {
   item {
     key   = "Agent Role"
     value = data.coder_parameter.agent_role.value
+  }
+  item {
+    key   = "Agent Profile Name"
+    value = local.agent_profile_name
   }
   item {
     key   = "Persistent Data Path (host)"

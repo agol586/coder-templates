@@ -138,7 +138,7 @@ if [ -n "${BUZZ_RELAY_URL:-}" ]; then
   git config --global "credential.${relay_http_url}/git.useHttpPath" true
 fi
 
-log "starting buzz-acp (provider: ${provider})"
+log "starting buzz-acp (profile: ${BUZZ_ACP_DISPLAY_NAME:-${AGENT_ROLE:-unknown}}, provider: ${provider})"
 export BUZZ_ACP_AGENT_COMMAND="buzz-agent"
 export BUZZ_ACP_AGENT_ARGS=""
 exec buzz-acp

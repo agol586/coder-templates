@@ -73,6 +73,9 @@ from that checkout if you need a modified build.
 | `cpu`                            | `2`                  |                                                                          |
 | `memory`                         | `4` (GB)             |                                                                          |
 | `dotfiles_uri`                   | *(empty)*            | Optional personal dotfiles repo.                                       |
+| `agent_profile_name`             | *(uses `agent_role`)* | Display name exposed to the ACP tool surface (`BUZZ_ACP_DISPLAY_NAME`). |
+| `agent_system_prompt`            | *(empty)*            | Instructions injected into every ACP session (`BUZZ_ACP_SYSTEM_PROMPT`). |
+| `agent_initial_message`          | *(empty)*            | Optional message sent after each ACP session is created (`BUZZ_ACP_INITIAL_MESSAGE`). |
 | `buzz_ref`                       | `b622003f74aa5bf9b659786452813299a25e4897` | Immutable Buzz commit; selects the Sprig/relay images and `~/repos/buzz` checkout. |
 | `relay_url`                      | *(required)*         | `wss://` or `ws://` URL of the relay this agent connects to (`BUZZ_RELAY_URL`). |
 | `buzz_agent_provider`            | `anthropic`          | `anthropic`, `openai`, `openrouter`, `databricks`, or `databricks_v2` (`BUZZ_AGENT_PROVIDER`). |
@@ -85,9 +88,27 @@ from that checkout if you need a modified build.
 | `buzz_acp_max_turn_duration`     | `7200`               | Absolute wall-clock cap per turn.                                       |
 | `buzz_agent_max_rounds`          | `0`                  | Tool-loop iteration cap; `0` = unlimited.                                |
 
-Non-secret settings above (relay URL, provider name, model, endpoint,
-respond-to policy, timeouts) are ordinary container environment variables set
-by Terraform. **No secret ever passes through a `coder_parameter`.**
+Non-secret settings above (including the profile name and prompts) are ordinary
+container environment variables set by Terraform. Empty prompt parameters are
+left unset rather than passed to Buzz as empty values. Parameter changes take
+effect when Coder recreates/restarts the workspace container.
+
+Coder parameters are visible to users and administrators who can inspect the
+workspace/template inputs and may be represented in Terraform state. Treat the
+profile and prompt fields as **plaintext configuration**: do not put API keys,
+private keys, access tokens, or other secrets in them. Secrets remain only in
+the persistent `~/.config/buzz/agent.env`; **no secret passes through a
+`coder_parameter`.**
+
+Example:
+
+```console
+coder create finance-agent --template buzz-agent \
+  --parameter agent_role=finance \
+  --parameter agent_profile_name="Finance Analyst" \
+  --parameter agent_system_prompt="You are the finance analyst. Explain assumptions and cite source data." \
+  --parameter agent_initial_message="Review your role and wait for an explicit task."
+```
 
 ## One workspace per role
 
